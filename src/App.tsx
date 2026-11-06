@@ -31,7 +31,10 @@ import {
   FolderArchive,
   CheckCircle2,
   Key,
-  ExternalLink
+  ExternalLink,
+  Smartphone,
+  Share2,
+  WifiOff
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { PROJECT_FILES, ProjectFile } from './projectFiles';
@@ -117,6 +120,78 @@ export default function App() {
 
   // Simulador interactivo en modal científico (Stefan-Boltzmann y Wien)
   const [simTempK, setSimTempK] = useState<number>(850);
+
+  // Estados para soporte móvil, Android, iOS y PWA
+  const [mobileTab, setMobileTab] = useState<'map' | 'list' | 'metrics'>('map');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [isIOS, setIsIOS] = useState<boolean>(false);
+  const [showIOSInstallModal, setShowIOSInstallModal] = useState<boolean>(false);
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    // Detectar si corre en modo standalone (PWA ya instalada en Android o iOS)
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+    setIsInstalled(isStandalone);
+
+    // Detección de dispositivos iOS (iPhone / iPad)
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isIOSDevice = /iphone|ipad|ipod/.test(ua);
+    setIsIOS(isIOSDevice);
+
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+    };
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Forzar redibujado de Leaflet cuando se conmuta a la pestaña del mapa en móviles
+  useEffect(() => {
+    if (mobileTab === 'map' && mapInstanceRef.current) {
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize();
+      }, 150);
+    }
+  }, [mobileTab]);
+
+  const handleInstallClick = async () => {
+    if (isIOS) {
+      setShowIOSInstallModal(true);
+      return;
+    }
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+        setDeferredPrompt(null);
+      }
+    } else {
+      setShowIOSInstallModal(true);
+    }
+  };
 
   // Generador de ZIP en memoria con JSZip (100% libre de errores de red)
   const handleDownloadZipClient = async () => {
@@ -741,6 +816,7 @@ export default function App() {
   // Centrar mapa en una anomalía seleccionada
   const handleFocusAnomaly = (anomaly: ThermalAnomaly) => {
     setSelectedAnomaly(anomaly);
+    setMobileTab('map');
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([anomaly.latitude, anomaly.longitude], 13, { duration: 0.8 });
     }
@@ -881,6 +957,18 @@ export default function App() {
 
         {/* Zona 3: Botones de Acción Primaria */}
         <div className="flex items-center gap-2 shrink-0">
+          {!isInstalled && (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm transition-all whitespace-nowrap active:scale-95 border border-cyan-400/30"
+              title="Instalar como aplicación nativa en tu dispositivo móvil Android o iPhone"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Instalar App</span>
+              <span className="sm:hidden">Instalar</span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowExportModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 transition-colors whitespace-nowrap shadow-sm"
@@ -961,8 +1049,8 @@ export default function App() {
       <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
         
         {/* VIEWPORT STAGE: Leaflet Map */}
-        <div className="flex-1 relative h-full min-h-[460px] bg-slate-950">
-          <div ref={mapContainerRef} className="w-full h-full min-h-[460px] z-0" />
+        <div className={`flex-1 relative h-full min-h-[350px] bg-slate-950 ${mobileTab === 'map' ? 'block' : 'hidden md:block'}`}>
+          <div ref={mapContainerRef} className="w-full h-full min-h-[350px] z-0" />
 
           {/* Quick Controls Overlay on Map (Top Left) */}
           <div className="absolute top-3 left-3 z-[400] flex flex-wrap items-center gap-2">
@@ -1075,7 +1163,7 @@ export default function App() {
         </div>
 
         {/* LATERAL COLUMN: Focos List & Tactical Inspector */}
-        <aside className="w-full md:w-80 lg:w-96 bg-slate-900/95 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0 max-h-[45vh] md:max-h-full z-10">
+        <aside className={`w-full md:w-80 lg:w-96 bg-slate-900/95 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0 h-full z-10 ${mobileTab === 'list' ? 'flex flex-1' : 'hidden md:flex'}`}>
           
           {/* Header con filtros de búsqueda rápida */}
           <div className="p-3 border-b border-slate-800 space-y-2 bg-slate-900">
@@ -1209,7 +1297,130 @@ export default function App() {
             </div>
           )}
         </aside>
+
+        {/* MOBILE METRICS PANEL: Vista detallada táctica en pantallas de teléfono */}
+        <div className={`flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950 ${mobileTab === 'metrics' ? 'block' : 'hidden md:hidden'}`}>
+          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Resumen Operativo</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${metrics.alertStatus.badge}`}>
+                {metrics.alertStatus.text}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+                <span className="text-slate-400 block text-[11px]">Focos Activos</span>
+                <span className="text-lg font-bold text-white font-mono">{metrics.total}</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+                <span className="text-slate-400 block text-[11px]">Potencia Máxima</span>
+                <span className="text-lg font-bold text-amber-400 font-mono">{metrics.maxFrp} MW</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+                <span className="text-slate-400 block text-[11px]">FRP Acumulada</span>
+                <span className="text-lg font-bold text-cyan-400 font-mono">{metrics.totalFrp.toFixed(1)} MW</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+                <span className="text-slate-400 block text-[11px]">Consumo Biomasa</span>
+                <span className="text-lg font-bold text-rose-400 font-mono">{metrics.biomassBurnRateKgPerSec} kg/s</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2 text-xs">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Desglose de Riesgo</span>
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between items-center p-2 rounded bg-rose-950/30 border border-rose-900/50 text-rose-300">
+                <span>Riesgo Crítico (FRP ≥ 50 MW)</span>
+                <span className="font-mono font-bold">{metrics.highRisk}</span>
+              </div>
+              <div className="flex justify-between items-center p-2 rounded bg-amber-950/30 border border-amber-900/50 text-amber-300">
+                <span>Vigilancia Media (10 - 50 MW)</span>
+                <span className="font-mono font-bold">{metrics.medRisk}</span>
+              </div>
+              <div className="flex justify-between items-center p-2 rounded bg-emerald-950/30 border border-emerald-900/50 text-emerald-300">
+                <span>Bajo / Falso Positivo (&lt; 10 MW)</span>
+                <span className="font-mono font-bold">{metrics.lowRisk}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2 text-xs">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Acciones Móviles</span>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="p-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-center transition-colors"
+              >
+                Reporte Brigadas
+              </button>
+              <button
+                onClick={() => setShowScienceModal(true)}
+                className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-semibold border border-slate-700 text-center transition-colors"
+              >
+                Física Satelital
+              </button>
+            </div>
+          </div>
+        </div>
       </main>
+
+      {/* ===================================================================== */}
+      {/* MOBILE BOTTOM NAVIGATION BAR: Ergonómico para Android / iOS          */}
+      {/* ===================================================================== */}
+      <nav className="md:hidden flex items-center justify-around border-t border-slate-800 bg-slate-900/95 backdrop-blur-md px-2 py-1.5 z-40 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <button
+          onClick={() => setMobileTab('map')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg transition-colors ${
+            mobileTab === 'map' ? 'text-cyan-400 bg-slate-800/80 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Compass className="w-4 h-4 mb-0.5" />
+          <span className="text-[10px]">Mapa</span>
+        </button>
+
+        <button
+          onClick={() => setMobileTab('list')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg transition-colors relative ${
+            mobileTab === 'list' ? 'text-amber-400 bg-slate-800/80 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Flame className="w-4 h-4 mb-0.5" />
+          <span className="text-[10px]">Focos ({filteredAnomalies.length})</span>
+          {metrics.highRisk > 0 && (
+            <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+          )}
+        </button>
+
+        <button
+          onClick={() => setMobileTab('metrics')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg transition-colors ${
+            mobileTab === 'metrics' ? 'text-emerald-400 bg-slate-800/80 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Activity className="w-4 h-4 mb-0.5" />
+          <span className="text-[10px]">Métricas</span>
+        </button>
+
+        <button
+          onClick={handleRefreshSweep}
+          disabled={loading}
+          className="flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg text-slate-400 hover:text-cyan-300 transition-colors"
+          title="Actualizar barrido"
+        >
+          <RefreshCw className={`w-4 h-4 mb-0.5 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+          <span className="text-[10px]">Barrido</span>
+        </button>
+      </nav>
+
+      {/* Indicador de conexión offline para trabajo de campo en el páramo */}
+      {!isOnline && (
+        <div className="fixed bottom-16 md:bottom-4 left-4 z-50 flex items-center gap-2 rounded-xl bg-amber-600/95 backdrop-blur-md px-3.5 py-2 text-xs font-semibold text-white shadow-2xl border border-amber-400/30">
+          <WifiOff className="w-4 h-4 text-white animate-pulse" />
+          <span>Modo de campo sin conexión · Datos en caché</span>
+        </div>
+      )}
+
 
       {/* ===================================================================== */}
       {/* MODAL 1: DIVULGACIÓN CIENTÍFICA (Física de Teledetección y Fuego)     */}
@@ -1853,6 +2064,99 @@ export default function App() {
                   Guardar y Sincronizar
                 </button>
               </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: Guía de Instalación para iPhone (iOS) y Android                */}
+      {/* ===================================================================== */}
+      {showIOSInstallModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col">
+            
+            {/* Header */}
+            <div className="p-4 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-cyan-950/80 border border-cyan-500/50 text-cyan-400">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Instalar en tu Móvil</h3>
+                  <p className="text-[11px] text-slate-400">Acceso como App nativa en Android o iPhone</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowIOSInstallModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido guiado */}
+            <div className="p-5 space-y-4 text-xs text-slate-300">
+              {isIOS ? (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                    <span className="font-bold text-slate-100 flex items-center gap-1.5">
+                      <Share2 className="w-4 h-4 text-cyan-400" />
+                      Instalación en iPhone / iPad (Safari):
+                    </span>
+                    <ol className="list-decimal list-inside space-y-2 text-slate-300 text-[11px] pt-1">
+                      <li className="leading-relaxed">
+                        En la barra inferior de Safari, pulsa el botón <strong>Compartir</strong> (ícono de cuadro con flecha hacia arriba <Share2 className="w-3.5 h-3.5 inline text-cyan-400 mx-0.5" />).
+                      </li>
+                      <li className="leading-relaxed">
+                        Desplázate hacia abajo en la lista y selecciona <strong>"Añadir a la pantalla de inicio"</strong> (+).
+                      </li>
+                      <li className="leading-relaxed">
+                        Pulsa <strong>"Añadir"</strong> arriba a la derecha.
+                      </li>
+                    </ol>
+                  </div>
+                  <p className="text-[11px] text-emerald-400 text-center font-medium bg-emerald-950/40 border border-emerald-800/40 rounded-lg p-2">
+                    ✓ Se abrirá a pantalla completa sin barras del navegador como una app nativa.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                    <span className="font-bold text-slate-100 flex items-center gap-1.5">
+                      <Smartphone className="w-4 h-4 text-emerald-400" />
+                      Instalación en Android (Chrome):
+                    </span>
+                    <ol className="list-decimal list-inside space-y-2 text-slate-300 text-[11px] pt-1">
+                      <li className="leading-relaxed">Pulsa el menú de <strong>tres puntos (⋮)</strong> arriba a la derecha en Chrome.</li>
+                      <li className="leading-relaxed">Selecciona <strong>"Instalar aplicación"</strong> o <strong>"Añadir a la pantalla de inicio"</strong>.</li>
+                      <li className="leading-relaxed">Confirma y el icono de Guardabosques Sumapaz aparecerá en tu teléfono.</li>
+                    </ol>
+                  </div>
+                  {deferredPrompt && (
+                    <button
+                      onClick={() => {
+                        setShowIOSInstallModal(false);
+                        handleInstallClick();
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg transition-all"
+                    >
+                      Instalar Automáticamente
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-slate-800 bg-slate-950/80 flex justify-end">
+              <button
+                onClick={() => setShowIOSInstallModal(false)}
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+              >
+                Cerrar
+              </button>
             </div>
 
           </div>
