@@ -34,7 +34,9 @@ import {
   ExternalLink,
   Smartphone,
   Share2,
-  WifiOff
+  WifiOff,
+  Menu,
+  SlidersHorizontal
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { PROJECT_FILES, ProjectFile } from './projectFiles';
@@ -127,6 +129,7 @@ export default function App() {
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [isIOS, setIsIOS] = useState<boolean>(false);
   const [showIOSInstallModal, setShowIOSInstallModal] = useState<boolean>(false);
+  const [showMobileToolsModal, setShowMobileToolsModal] = useState<boolean>(false);
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   useEffect(() => {
@@ -880,25 +883,80 @@ export default function App() {
       {/* ===================================================================== */}
       {/* TOP NAVIGATION BAR: Contrato de 3 Zonas (Brand, Links/Filters, Actions) */}
       {/* ===================================================================== */}
-      <header className="flex items-center justify-between gap-8 px-5 py-3 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md z-30 shrink-0">
+      <header className="flex items-center justify-between gap-2 md:gap-6 px-3 sm:px-5 py-2 sm:py-3 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md z-30 shrink-0 pt-[max(0.6rem,env(safe-area-inset-top))]">
         
-        {/* Zona 1: Brand Wordmark Limpio */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/50 flex items-center justify-center text-emerald-400 font-bold text-sm shadow-inner">
+        {/* Zona 1: Brand Wordmark */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/50 flex items-center justify-center text-emerald-400 font-bold text-xs sm:text-sm shadow-inner">
             <Compass className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold tracking-tight text-white whitespace-nowrap">
+          <div className="flex items-baseline gap-1.5 sm:gap-2">
+            <span className="text-base sm:text-lg font-bold tracking-tight text-white whitespace-nowrap">
               Guardabosques Sumapaz
             </span>
-            <span className="text-xs text-slate-400 hidden lg:inline">
+            <span className="text-xs text-slate-400 hidden xl:inline">
               · Teledetección Satelital NASA FIRMS
             </span>
           </div>
         </div>
 
-        {/* Zona 2: Selector Temporal Segmentado & Acciones Satelitales */}
-        <div className="flex items-center gap-2">
+        {/* Zona Móvil Exclusiva: Acciones rápidas + Botón Menú Herramientas */}
+        <div className="flex md:hidden items-center gap-1.5 shrink-0">
+          {/* Selector de horas compacto para móviles */}
+          <div className="flex items-center p-0.5 bg-slate-950/80 rounded-lg border border-slate-800 text-[11px]">
+            {([24, 48, 72] as const).map(opt => (
+              <button
+                key={opt}
+                onClick={() => setHours(opt)}
+                className={`px-1.5 py-0.5 rounded font-semibold transition-all ${
+                  hours === opt ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                }`}
+              >
+                {opt}h
+              </button>
+            ))}
+          </div>
+
+          {/* Botón de Actualizar Barrido */}
+          <button
+            onClick={handleRefreshSweep}
+            disabled={loading}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 active:scale-95"
+            title="Refrescar barrido satelital"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-400' : 'text-cyan-400'}`} />
+          </button>
+
+          {/* Botón de Clave NASA en Móvil */}
+          <button
+            onClick={() => {
+              setKeyInput(nasaFirmsKey);
+              setKeyFeedback(null);
+              setShowNasaKeyModal(true);
+            }}
+            className={`p-1.5 rounded-lg border active:scale-95 ${
+              nasaFirmsKey
+                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-600/60'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}
+            title="Configurar clave NASA FIRMS"
+          >
+            <Satellite className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Botón de Menú Completo para Móviles */}
+          <button
+            onClick={() => setShowMobileToolsModal(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm active:scale-95"
+            title="Abrir menú de herramientas, reportes y descargas"
+          >
+            <Menu className="w-4 h-4" />
+            <span>Herramientas</span>
+          </button>
+        </div>
+
+        {/* Zona 2: Selector Temporal Segmentado & Acciones Satelitales (Escritorio / Tablet) */}
+        <div className="hidden md:flex items-center gap-2">
           <div className="flex items-center gap-1.5 p-1 bg-slate-950/70 rounded-lg border border-slate-800">
             <span className="text-xs text-slate-400 px-2 font-mono hidden sm:inline">Ventana:</span>
             {(['24', '48', '72'] as const).map(opt => {
@@ -955,8 +1013,8 @@ export default function App() {
           </button>
         </div>
 
-        {/* Zona 3: Botones de Acción Primaria */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Zona 3: Botones de Acción Primaria (Escritorio / Tablet) */}
+        <div className="hidden md:flex items-center gap-2 shrink-0">
           {!isInstalled && (
             <button
               onClick={handleInstallClick}
@@ -1403,13 +1461,12 @@ export default function App() {
         </button>
 
         <button
-          onClick={handleRefreshSweep}
-          disabled={loading}
-          className="flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg text-slate-400 hover:text-cyan-300 transition-colors"
-          title="Actualizar barrido"
+          onClick={() => setShowMobileToolsModal(true)}
+          className="flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg text-emerald-400 hover:text-emerald-300 transition-colors font-bold active:scale-95"
+          title="Ver todos los botones y herramientas"
         >
-          <RefreshCw className={`w-4 h-4 mb-0.5 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
-          <span className="text-[10px]">Barrido</span>
+          <Menu className="w-4 h-4 mb-0.5" />
+          <span className="text-[10px]">Herramientas</span>
         </button>
       </nav>
 
@@ -2156,6 +2213,256 @@ export default function App() {
                 className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
               >
                 Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: Menú Completo de Herramientas y Acciones para Móviles          */}
+      {/* ===================================================================== */}
+      {showMobileToolsModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+            
+            {/* Header del menú móvil */}
+            <div className="p-4 border-b border-slate-800 bg-slate-950/90 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-400">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Herramientas y Acciones</h3>
+                  <p className="text-[11px] text-slate-400">Acceso completo a todas las funciones en tu móvil</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMobileToolsModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Lista scrolleable de todas las herramientas */}
+            <div className="p-4 overflow-y-auto space-y-4 text-xs">
+              
+              {/* Sección 1: Reportes y Divulgación */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Reportes & Operación
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setShowMobileToolsModal(false);
+                      setShowReportModal(true);
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all text-left shadow-sm active:scale-98"
+                  >
+                    <FileText className="w-5 h-5 shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold">Reporte Brigadas</div>
+                      <div className="text-[10px] text-slate-900/80 font-normal">Táctico para guardaparques y bomberos</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMobileToolsModal(false);
+                      setShowScienceModal(true);
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition-all text-left active:scale-98"
+                  >
+                    <BookOpen className="w-5 h-5 text-cyan-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold">Divulgación Científica</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Stefan-Boltzmann, Wien y física térmica</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMobileToolsModal(false);
+                      setShowExportModal(true);
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 transition-all text-left active:scale-98"
+                  >
+                    <FolderArchive className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold">Descargar Proyecto (.zip)</div>
+                      <div className="text-[10px] text-emerald-400/80 font-normal">Código fuente completo y scripts</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMobileToolsModal(false);
+                      handleExportCSV();
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all text-left active:scale-98"
+                  >
+                    <Download className="w-5 h-5 text-sky-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold">Exportar CSV de Focos</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Descargar planilla con los {filteredAnomalies.length} focos</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Sección 2: Telemetría y Configuración Satelital */}
+              <div className="space-y-2 pt-1 border-t border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Telemetría & Satélites
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setKeyInput(nasaFirmsKey);
+                      setShowMobileToolsModal(false);
+                      setShowNasaKeyModal(true);
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-600/60 text-slate-200 transition-all text-left active:scale-98"
+                  >
+                    <Satellite className={`w-5 h-5 shrink-0 ${nasaFirmsKey ? 'text-emerald-400' : 'text-slate-400'}`} />
+                    <div>
+                      <div className="text-xs font-bold">
+                        {nasaFirmsKey ? 'Clave NASA: Activa' : 'Conectar Clave NASA FIRMS'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-normal">
+                        {nasaFirmsKey ? 'Datos en vivo de satélites VIIRS/MODIS' : 'Configurar acceso satelital gratuito'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMobileToolsModal(false);
+                      handleRefreshSweep();
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-500/60 text-slate-200 transition-all text-left active:scale-98"
+                  >
+                    <RefreshCw className={`w-5 h-5 text-cyan-400 shrink-0 ${loading ? 'animate-spin' : ''}`} />
+                    <div>
+                      <div className="text-xs font-bold">Nuevo Barrido Satelital</div>
+                      <div className="text-[10px] text-slate-400 font-normal">
+                        {lastSweepTime ? `Último paso: ${lastSweepTime}` : 'Refrescar mediciones térmicas'}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Selector de Horas en Móvil */}
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+                  <span className="text-[11px] text-slate-400 font-semibold block">Ventana Temporal de Análisis:</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {([24, 48, 72] as const).map(opt => (
+                      <button
+                        key={opt}
+                        onClick={() => {
+                          setHours(opt);
+                          setShowMobileToolsModal(false);
+                        }}
+                        className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                          hours === opt
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {opt} Horas
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 3: Controles del Mapa */}
+              <div className="space-y-2 pt-1 border-t border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Controles de Cartografía
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      handleRecenter();
+                      setMobileTab('map');
+                      setShowMobileToolsModal(false);
+                    }}
+                    className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-cyan-300 font-semibold text-xs active:scale-98"
+                  >
+                    <Compass className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span>Centrar Sumapaz</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowLandmarks(!showLandmarks);
+                    }}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold active:scale-98 ${
+                      showLandmarks
+                        ? 'bg-purple-950/80 text-purple-300 border-purple-600/70'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    <MapPin className="w-4 h-4 text-purple-400 shrink-0" />
+                    <span>{showLandmarks ? 'Hitos: Activos' : 'Hitos: Ocultos'}</span>
+                  </button>
+                </div>
+
+                {/* Selector de Capa en Móvil */}
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+                  <span className="text-[11px] text-slate-400 font-semibold block">Capa Cartográfica Base:</span>
+                  <div className="grid grid-cols-4 gap-1">
+                    {(['topo', 'sat', 'dark', 'osm'] as const).map(type => (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          setMapLayerType(type);
+                          setMobileTab('map');
+                          setShowMobileToolsModal(false);
+                        }}
+                        className={`py-1.5 text-[11px] font-semibold rounded-lg transition-all capitalize ${
+                          mapLayerType === type
+                            ? 'bg-cyan-600 text-white font-bold'
+                            : 'bg-slate-900 text-slate-400 border border-slate-800'
+                        }`}
+                      >
+                        {type === 'topo' ? 'Relieve' : type === 'sat' ? 'Satélite' : type === 'dark' ? 'Oscuro' : 'Vías'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 4: Instalación Móvil PWA */}
+              {!isInstalled && (
+                <div className="pt-1 border-t border-slate-800">
+                  <button
+                    onClick={() => {
+                      setShowMobileToolsModal(false);
+                      handleInstallClick();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg transition-all active:scale-98"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Instalar como App Nativa en Android / iPhone</span>
+                  </button>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-slate-800 bg-slate-950/90 flex justify-between items-center shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <span className="text-[10px] text-slate-400">Páramo de Sumapaz · Monitoreo Satelital</span>
+              <button
+                onClick={() => setShowMobileToolsModal(false)}
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+              >
+                Cerrar Menú
               </button>
             </div>
 
