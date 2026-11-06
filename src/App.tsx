@@ -36,7 +36,9 @@ import {
   Share2,
   WifiOff,
   Menu,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { PROJECT_FILES, ProjectFile } from './projectFiles';
@@ -124,7 +126,7 @@ export default function App() {
   const [simTempK, setSimTempK] = useState<number>(850);
 
   // Estados para soporte móvil, Android, iOS y PWA
-  const [mobileTab, setMobileTab] = useState<'map' | 'list' | 'metrics'>('map');
+  const [showFrpLegend, setShowFrpLegend] = useState<boolean>(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [isIOS, setIsIOS] = useState<boolean>(false);
@@ -170,14 +172,18 @@ export default function App() {
     };
   }, []);
 
-  // Forzar redibujado de Leaflet cuando se conmuta a la pestaña del mapa en móviles
+  // Forzar redibujado de Leaflet ante cualquier cambio de tamaño de ventana o pantalla móvil
   useEffect(() => {
-    if (mobileTab === 'map' && mapInstanceRef.current) {
-      setTimeout(() => {
-        mapInstanceRef.current?.invalidateSize();
-      }, 150);
-    }
-  }, [mobileTab]);
+    const handleResize = () => {
+      mapInstanceRef.current?.invalidateSize();
+    };
+    window.addEventListener('resize', handleResize);
+    const timer = setTimeout(handleResize, 250);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
+  }, []);
 
   const handleInstallClick = async () => {
     if (isIOS) {
@@ -819,9 +825,11 @@ export default function App() {
   // Centrar mapa en una anomalía seleccionada
   const handleFocusAnomaly = (anomaly: ThermalAnomaly) => {
     setSelectedAnomaly(anomaly);
-    setMobileTab('map');
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([anomaly.latitude, anomaly.longitude], 13, { duration: 0.8 });
+    }
+    if (window.innerWidth < 768) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -900,8 +908,28 @@ export default function App() {
           </div>
         </div>
 
-        {/* Zona Móvil Exclusiva: Acciones rápidas + Botón Menú Herramientas */}
+        {/* Zona Móvil Exclusiva: Acciones rápidas + Clave NASA Destacada */}
         <div className="flex md:hidden items-center gap-1.5 shrink-0">
+          {/* Botón Destacado de Clave NASA en Móvil */}
+          <button
+            onClick={() => {
+              setKeyInput(nasaFirmsKey);
+              setKeyFeedback(null);
+              setShowNasaKeyModal(true);
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all shadow-md active:scale-95 ${
+              nasaFirmsKey
+                ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500 shadow-emerald-950/40'
+                : 'bg-gradient-to-r from-amber-500/25 via-emerald-500/20 to-cyan-500/25 hover:from-amber-500/35 hover:to-cyan-500/35 text-amber-300 border-amber-500/70 shadow-amber-950/40 ring-1 ring-amber-500/30'
+            }`}
+            title="Conectar clave API gratuita de NASA FIRMS para telemetría en tiempo real"
+          >
+            <Satellite className={`w-3.5 h-3.5 shrink-0 ${nasaFirmsKey ? 'text-emerald-400' : 'text-amber-400 animate-pulse'}`} />
+            <span className="whitespace-nowrap font-bold text-[11px]">
+              {nasaFirmsKey ? 'NASA En Vivo' : 'Clave NASA Gratis'}
+            </span>
+          </button>
+
           {/* Selector de horas compacto para móviles */}
           <div className="flex items-center p-0.5 bg-slate-950/80 rounded-lg border border-slate-800 text-[11px]">
             {([24, 48, 72] as const).map(opt => (
@@ -925,33 +953,6 @@ export default function App() {
             title="Refrescar barrido satelital"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-400' : 'text-cyan-400'}`} />
-          </button>
-
-          {/* Botón de Clave NASA en Móvil */}
-          <button
-            onClick={() => {
-              setKeyInput(nasaFirmsKey);
-              setKeyFeedback(null);
-              setShowNasaKeyModal(true);
-            }}
-            className={`p-1.5 rounded-lg border active:scale-95 ${
-              nasaFirmsKey
-                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-600/60'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
-            }`}
-            title="Configurar clave NASA FIRMS"
-          >
-            <Satellite className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Botón de Menú Completo para Móviles */}
-          <button
-            onClick={() => setShowMobileToolsModal(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm active:scale-95"
-            title="Abrir menú de herramientas, reportes y descargas"
-          >
-            <Menu className="w-4 h-4" />
-            <span>Herramientas</span>
           </button>
         </div>
 
@@ -989,27 +990,29 @@ export default function App() {
             <span className="hidden sm:inline">Actualizar Barrido</span>
           </button>
 
-          {/* Botón de Clave NASA FIRMS */}
+          {/* Botón Destacado de Clave NASA FIRMS en Escritorio */}
           <button
             onClick={() => {
               setKeyInput(nasaFirmsKey);
               setKeyFeedback(null);
               setShowNasaKeyModal(true);
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all shadow-md active:scale-95 ${
               nasaFirmsKey
-                ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border-emerald-600/60 shadow-sm'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                ? 'bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 border-emerald-500 shadow-emerald-950/50'
+                : 'bg-gradient-to-r from-amber-500/25 via-emerald-500/20 to-cyan-500/25 hover:from-amber-500/35 hover:to-cyan-500/35 text-amber-300 border-amber-500/70 shadow-amber-950/40 ring-1 ring-amber-500/30'
             }`}
-            title="Conectar clave API gratuita de NASA FIRMS para telemetría 100% en vivo"
+            title="Conectar clave API gratuita de NASA FIRMS para telemetría 100% en tiempo real"
           >
-            <Satellite className={`w-3.5 h-3.5 ${nasaFirmsKey ? 'text-emerald-400' : 'text-slate-400'}`} />
-            <span className="hidden md:inline">
-              {nasaFirmsKey ? 'NASA FIRMS (En Vivo)' : 'Conectar Clave NASA'}
+            <Satellite className={`w-4 h-4 shrink-0 ${nasaFirmsKey ? 'text-emerald-400' : 'text-amber-400 animate-pulse'}`} />
+            <span className="whitespace-nowrap">
+              {nasaFirmsKey ? '🛰️ NASA FIRMS (En Vivo)' : '🛰️ Conectar Clave API Gratuita NASA'}
             </span>
-            <span className="md:hidden">
-              {nasaFirmsKey ? 'NASA Vivo' : 'NASA'}
-            </span>
+            {!nasaFirmsKey && (
+              <span className="px-1.5 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] rounded uppercase font-mono font-bold">
+                Gratis
+              </span>
+            )}
           </button>
         </div>
 
@@ -1104,14 +1107,14 @@ export default function App() {
       {/* ===================================================================== */}
       {/* MAIN WORKSPACE: Split Console (Map Canvas + Lateral Control Column)   */}
       {/* ===================================================================== */}
-      <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+      <main className="flex-1 flex flex-col md:flex-row relative overflow-y-auto md:overflow-hidden">
         
         {/* VIEWPORT STAGE: Leaflet Map */}
-        <div className={`flex-1 relative h-full min-h-[350px] bg-slate-950 ${mobileTab === 'map' ? 'block' : 'hidden md:block'}`}>
-          <div ref={mapContainerRef} className="w-full h-full min-h-[350px] z-0" />
+        <div className="w-full md:flex-1 relative h-[45vh] md:h-full min-h-[300px] shrink-0 bg-slate-950">
+          <div ref={mapContainerRef} className="w-full h-full min-h-[300px] z-0" />
 
           {/* Quick Controls Overlay on Map (Top Left) */}
-          <div className="absolute top-3 left-3 z-[400] flex flex-wrap items-center gap-2">
+          <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-2">
             <button
               onClick={handleRecenter}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900/95 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-cyan-300 shadow-xl transition-colors backdrop-blur-sm"
@@ -1146,7 +1149,7 @@ export default function App() {
           </div>
 
           {/* Selector de Capa de Mapa (Top Right) */}
-          <div className="absolute top-3 right-3 z-[400] flex items-center bg-slate-900/95 p-1 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-sm">
+          <div className="absolute top-3 right-3 z-20 flex items-center bg-slate-900/95 p-1 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-sm">
             <button
               onClick={() => setMapLayerType('topo')}
               className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all ${
@@ -1193,35 +1196,59 @@ export default function App() {
             </button>
           </div>
 
-          {/* Semaforización por FRP Legend Overlay */}
-          <div className="absolute bottom-6 left-4 z-[400] bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl p-3 text-xs shadow-2xl max-w-[280px]">
-            <div className="flex items-center justify-between font-bold text-white mb-2">
+          {/* Semaforización por FRP Legend Overlay (Colapsable y z-20 para nunca sobreponerse a modales) */}
+          {showFrpLegend ? (
+            <div className="absolute bottom-4 left-4 z-20 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl p-3 text-xs shadow-2xl max-w-[280px]">
+              <div className="flex items-center justify-between font-bold text-white mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Semaforización FRP</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-slate-400">(MW)</span>
+                  <button
+                    onClick={() => setShowFrpLegend(false)}
+                    className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-slate-800 transition-colors ml-1"
+                    title="Minimizar leyenda FRP"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 border border-emerald-300 shrink-0"></span>
+                  <span className="text-slate-300">&lt; 10 MW: Baja / Falso positivo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 border border-amber-300 shrink-0"></span>
+                  <span className="text-slate-300">10 &ndash; 50 MW: Media / Frente activo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-rose-600 border border-rose-300 shrink-0"></span>
+                  <span className="text-slate-300">&ge; 50 MW: Alta / Incendio crítico</span>
+                </div>
+                <div className="pt-2 border-t border-slate-800 flex items-center gap-2 text-slate-400 text-[11px]">
+                  <span className="w-4 h-0 border-t-2 border-dashed border-cyan-400 inline-block"></span>
+                  <span>Límite BBox Sumapaz</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowFrpLegend(true)}
+              className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-slate-300 shadow-xl backdrop-blur-sm transition-all"
+              title="Mostrar semaforización de FRP"
+            >
+              <Activity className="w-3.5 h-3.5 text-amber-400" />
               <span>Semaforización FRP</span>
-              <span className="text-[10px] font-mono text-slate-400">(Megavatios)</span>
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 border border-emerald-300 shrink-0"></span>
-                <span className="text-slate-300">&lt; 10 MW: Baja / Falso positivo</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 border border-amber-300 shrink-0"></span>
-                <span className="text-slate-300">10 &ndash; 50 MW: Media / Frente activo</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded-full bg-rose-600 border border-rose-300 shrink-0"></span>
-                <span className="text-slate-300">&ge; 50 MW: Alta / Incendio crítico</span>
-              </div>
-              <div className="pt-2 border-t border-slate-800 flex items-center gap-2 text-slate-400 text-[11px]">
-                <span className="w-4 h-0 border-t-2 border-dashed border-cyan-400 inline-block"></span>
-                <span>Límite BBox Sumapaz</span>
-              </div>
-            </div>
-          </div>
+              <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          )}
         </div>
 
         {/* LATERAL COLUMN: Focos List & Tactical Inspector */}
-        <aside className={`w-full md:w-80 lg:w-96 bg-slate-900/95 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0 h-full z-10 ${mobileTab === 'list' ? 'flex flex-1' : 'hidden md:flex'}`}>
+        <aside className="w-full md:w-80 lg:w-96 bg-slate-900/95 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col md:h-full shrink-0 z-10">
           
           {/* Header con filtros de búsqueda rápida */}
           <div className="p-3 border-b border-slate-800 space-y-2 bg-slate-900">
@@ -1356,123 +1383,83 @@ export default function App() {
           )}
         </aside>
 
-        {/* MOBILE METRICS PANEL: Vista detallada táctica en pantallas de teléfono */}
-        <div className={`flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950 ${mobileTab === 'metrics' ? 'block' : 'hidden md:hidden'}`}>
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Resumen Operativo</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${metrics.alertStatus.badge}`}>
-                {metrics.alertStatus.text}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
-                <span className="text-slate-400 block text-[11px]">Focos Activos</span>
-                <span className="text-lg font-bold text-white font-mono">{metrics.total}</span>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
-                <span className="text-slate-400 block text-[11px]">Potencia Máxima</span>
-                <span className="text-lg font-bold text-amber-400 font-mono">{metrics.maxFrp} MW</span>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
-                <span className="text-slate-400 block text-[11px]">FRP Acumulada</span>
-                <span className="text-lg font-bold text-cyan-400 font-mono">{metrics.totalFrp.toFixed(1)} MW</span>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
-                <span className="text-slate-400 block text-[11px]">Consumo Biomasa</span>
-                <span className="text-lg font-bold text-rose-400 font-mono">{metrics.biomassBurnRateKgPerSec} kg/s</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2 text-xs">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Desglose de Riesgo</span>
-            <div className="space-y-1.5 pt-1">
-              <div className="flex justify-between items-center p-2 rounded bg-rose-950/30 border border-rose-900/50 text-rose-300">
-                <span>Riesgo Crítico (FRP ≥ 50 MW)</span>
-                <span className="font-mono font-bold">{metrics.highRisk}</span>
-              </div>
-              <div className="flex justify-between items-center p-2 rounded bg-amber-950/30 border border-amber-900/50 text-amber-300">
-                <span>Vigilancia Media (10 - 50 MW)</span>
-                <span className="font-mono font-bold">{metrics.medRisk}</span>
-              </div>
-              <div className="flex justify-between items-center p-2 rounded bg-emerald-950/30 border border-emerald-900/50 text-emerald-300">
-                <span>Bajo / Falso Positivo (&lt; 10 MW)</span>
-                <span className="font-mono font-bold">{metrics.lowRisk}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2 text-xs">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Acciones Móviles</span>
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                onClick={() => setShowReportModal(true)}
-                className="p-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-center transition-colors"
-              >
-                Reporte Brigadas
-              </button>
-              <button
-                onClick={() => setShowScienceModal(true)}
-                className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-semibold border border-slate-700 text-center transition-colors"
-              >
-                Física Satelital
-              </button>
-            </div>
-          </div>
-        </div>
       </main>
 
       {/* ===================================================================== */}
-      {/* MOBILE BOTTOM NAVIGATION BAR: Ergonómico para Android / iOS          */}
+      {/* FOOTER BAR: Botones de Acción y Herramientas del Pie de Página        */}
       {/* ===================================================================== */}
-      <nav className="md:hidden flex items-center justify-around border-t border-slate-800 bg-slate-900/95 backdrop-blur-md px-2 py-1.5 z-40 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <button
-          onClick={() => setMobileTab('map')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg transition-colors ${
-            mobileTab === 'map' ? 'text-cyan-400 bg-slate-800/80 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Compass className="w-4 h-4 mb-0.5" />
-          <span className="text-[10px]">Mapa</span>
-        </button>
+      <footer className="border-t border-slate-800 bg-slate-950/95 backdrop-blur-md px-3 sm:px-5 py-2.5 z-30 shrink-0 pb-[max(0.6rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          
+          {/* Grupo de Botones de Acción del Pie de Página */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleDownloadZipClient}
+              disabled={downloadingZip}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              title="Descargar proyecto completo en archivo .ZIP sin errores"
+            >
+              <FolderArchive className="w-3.5 h-3.5 text-white" />
+              <span>{downloadingZip ? 'Comprimiendo...' : 'Descargar Proyecto (.ZIP)'}</span>
+            </button>
 
-        <button
-          onClick={() => setMobileTab('list')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg transition-colors relative ${
-            mobileTab === 'list' ? 'text-amber-400 bg-slate-800/80 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Flame className="w-4 h-4 mb-0.5" />
-          <span className="text-[10px]">Focos ({filteredAnomalies.length})</span>
-          {metrics.highRisk > 0 && (
-            <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-          )}
-        </button>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition-all active:scale-95"
+              title="Generar e imprimir reporte táctico para brigadistas y guardaparques"
+            >
+              <FileText className="w-3.5 h-3.5 text-slate-950" />
+              <span>Reporte Brigadas</span>
+            </button>
 
-        <button
-          onClick={() => setMobileTab('metrics')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg transition-colors ${
-            mobileTab === 'metrics' ? 'text-emerald-400 bg-slate-800/80 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Activity className="w-4 h-4 mb-0.5" />
-          <span className="text-[10px]">Métricas</span>
-        </button>
+            <button
+              onClick={() => setShowScienceModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition-all active:scale-95"
+              title="Ver fundamentos científicos de la teledetección infrarroja"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Divulgación Científica</span>
+            </button>
 
-        <button
-          onClick={() => setShowMobileToolsModal(true)}
-          className="flex flex-col items-center justify-center flex-1 py-1 px-2 rounded-lg text-emerald-400 hover:text-emerald-300 transition-colors font-bold active:scale-95"
-          title="Ver todos los botones y herramientas"
-        >
-          <Menu className="w-4 h-4 mb-0.5" />
-          <span className="text-[10px]">Herramientas</span>
-        </button>
-      </nav>
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all active:scale-95"
+              title="Exportar archivo CSV con coordenadas y datos de focos"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-400" />
+              <span>Exportar CSV</span>
+            </button>
+
+            {!isInstalled && (
+              <button
+                onClick={handleInstallClick}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 transition-all active:scale-95"
+                title="Instalar como app móvil nativa en Android o iPhone"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Instalar App Móvil</span>
+                <span className="sm:hidden">Instalar</span>
+              </button>
+            )}
+          </div>
+
+          {/* Resumen de Telemetría y Coordenadas */}
+          <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-slate-300">Sumapaz</span>
+              <span className="text-slate-500 hidden md:inline">· 3.7°N a 4.4°N / -74.5°W a -73.9°W</span>
+            </div>
+            <span className="text-slate-700 hidden md:inline">|</span>
+            <span className="text-slate-400 hidden lg:inline">VIIRS NOAA-20/21 · MODIS Terra/Aqua</span>
+          </div>
+
+        </div>
+      </footer>
 
       {/* Indicador de conexión offline para trabajo de campo en el páramo */}
       {!isOnline && (
-        <div className="fixed bottom-16 md:bottom-4 left-4 z-50 flex items-center gap-2 rounded-xl bg-amber-600/95 backdrop-blur-md px-3.5 py-2 text-xs font-semibold text-white shadow-2xl border border-amber-400/30">
+        <div className="fixed bottom-14 left-4 z-40 flex items-center gap-2 rounded-xl bg-amber-600/95 backdrop-blur-md px-3.5 py-2 text-xs font-semibold text-white shadow-2xl border border-amber-400/30">
           <WifiOff className="w-4 h-4 text-white animate-pulse" />
           <span>Modo de campo sin conexión · Datos en caché</span>
         </div>
@@ -1483,7 +1470,7 @@ export default function App() {
       {/* MODAL 1: DIVULGACIÓN CIENTÍFICA (Física de Teledetección y Fuego)     */}
       {/* ===================================================================== */}
       {showScienceModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
           <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
             
             {/* Modal Header */}
@@ -1650,7 +1637,7 @@ export default function App() {
       {/* MODAL 2: REPORTE DE RIESGO PARA BRIGADAS (Imprimible y Descargable)   */}
       {/* ===================================================================== */}
       {showReportModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
           <div
             id="printable-report-area"
             className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"
@@ -1821,7 +1808,7 @@ export default function App() {
       {/* MODAL 3: DESCARGA Y EXPORTACIÓN DEL PROYECTO (100% GARANTIZADO)        */}
       {/* ===================================================================== */}
       {showExportModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
           <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
             
             {/* Modal Header */}
@@ -2018,7 +2005,7 @@ export default function App() {
       {/* MODAL: Configuración de Clave NASA FIRMS API (Datos en Tiempo Real)   */}
       {/* ===================================================================== */}
       {showNasaKeyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col">
             
             {/* Header */}
@@ -2131,7 +2118,7 @@ export default function App() {
       {/* MODAL: Guía de Instalación para iPhone (iOS) y Android                */}
       {/* ===================================================================== */}
       {showIOSInstallModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col">
             
             {/* Header */}
@@ -2224,7 +2211,7 @@ export default function App() {
       {/* MODAL: Menú Completo de Herramientas y Acciones para Móviles          */}
       {/* ===================================================================== */}
       {showMobileToolsModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-t-3xl sm:rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
             
             {/* Header del menú móvil */}
@@ -2388,8 +2375,10 @@ export default function App() {
                   <button
                     onClick={() => {
                       handleRecenter();
-                      setMobileTab('map');
                       setShowMobileToolsModal(false);
+                      if (window.innerWidth < 768) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
                     }}
                     className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-cyan-300 font-semibold text-xs active:scale-98"
                   >
@@ -2421,7 +2410,6 @@ export default function App() {
                         key={type}
                         onClick={() => {
                           setMapLayerType(type);
-                          setMobileTab('map');
                           setShowMobileToolsModal(false);
                         }}
                         className={`py-1.5 text-[11px] font-semibold rounded-lg transition-all capitalize ${
