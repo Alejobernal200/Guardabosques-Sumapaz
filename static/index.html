@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guardabosques Sumapaz - Monitoreo Satelital de Anomalías Térmicas</title>
+  <meta name="description" content="Plataforma de alerta temprana y divulgación científica para la visualización de anomalías térmicas en tiempo real en el Páramo de Sumapaz mediante datos abiertos de NASA FIRMS." />
+
+  <!-- Tailwind CSS CDN para la versión standalone estática -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              500: '#10b981',
+              600: '#059669',
+              900: '#064e3b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet.js CSS y JS desde CDN oficial -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="h-full flex flex-col overflow-hidden bg-slate-950 text-slate-100">
+
+  <!-- Encabezado Principal de Tres Zonas -->
+  <header class="flex items-center justify-between gap-4 px-4 py-2.5 bg-slate-900 border-b border-slate-800 shrink-0 z-20">
+    <!-- Zona 1: Identidad de Marca y Subtítulo Científico -->
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-700/60 flex items-center justify-center text-emerald-400 font-bold text-sm shadow-inner">
+        GS
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+          Guardabosques Sumapaz
+          <span class="text-xs font-normal text-emerald-400 border border-emerald-500/30 bg-emerald-950/40 px-2 py-0.5 rounded">NASA FIRMS</span>
+        </h1>
+        <p class="text-xs text-slate-400 hidden sm:block">Monitoreo Satelital de Anomalías Térmicas en Alta Montaña</p>
+      </div>
+    </div>
+
+    <!-- Zona 2: Filtro Temporal Segmentado (24h, 48h, 72h) -->
+    <div class="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700">
+      <button id="btn-24h" class="time-filter-btn px-2.5 py-1 text-xs font-medium rounded-md bg-emerald-600 text-white shadow-sm transition-all" data-hours="24">
+        24h
+      </button>
+      <button id="btn-48h" class="time-filter-btn px-2.5 py-1 text-xs font-medium rounded-md text-slate-300 hover:text-white transition-all" data-hours="48">
+        48h
+      </button>
+      <button id="btn-72h" class="time-filter-btn px-2.5 py-1 text-xs font-medium rounded-md text-slate-300 hover:text-white transition-all" data-hours="72">
+        72h
+      </button>
+    </div>
+
+    <!-- Zona 3: Acciones Principales -->
+    <div class="flex items-center gap-2">
+      <a href="guardabosques-sumapaz.zip" download="guardabosques-sumapaz.zip" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 transition-colors flex items-center gap-1.5 shadow-sm" title="Descargar paquete completo en formato .zip">
+        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+        <span class="hidden sm:inline">Descargar .ZIP</span>
+      </a>
+
+      <button id="btn-open-science" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 transition-colors flex items-center gap-1.5" title="Ver fundamentos físicos de teledetección">
+        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+        </svg>
+        <span class="hidden md:inline">Divulgación Científica</span>
+      </button>
+
+      <button id="btn-open-report" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold shadow transition-colors flex items-center gap-1.5" title="Generar reporte para brigadistas y guardaparques">
+        <svg class="w-4 h-4 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <span>Reporte Brigadas</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Barra de Métricas y Estado Táctico -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-2 px-4 py-2 bg-slate-900/90 border-b border-slate-800 text-xs shrink-0">
+    <div class="flex items-center justify-between p-2 rounded bg-slate-950/70 border border-slate-800">
+      <span class="text-slate-400">Focos Detectados:</span>
+      <span id="metric-total-anomalies" class="font-mono font-bold text-white text-sm">--</span>
+    </div>
+    <div class="flex items-center justify-between p-2 rounded bg-slate-950/70 border border-slate-800">
+      <span class="text-slate-400">FRP Máximo:</span>
+      <span class="font-mono font-bold text-amber-400 text-sm"><span id="metric-max-frp">--</span> <span class="text-[10px] text-slate-400">MW</span></span>
+    </div>
+    <div class="flex items-center justify-between p-2 rounded bg-slate-950/70 border border-slate-800">
+      <span class="text-slate-400">FRP Acumulado:</span>
+      <span class="font-mono font-bold text-cyan-400 text-sm"><span id="metric-total-frp">--</span> <span class="text-[10px] text-slate-400">MW</span></span>
+    </div>
+    <div class="flex items-center justify-between p-2 rounded bg-slate-950/70 border border-slate-800">
+      <span class="text-slate-400">Alerta Operativa:</span>
+      <span id="metric-alert-badge" class="font-bold text-xs uppercase text-emerald-400">Evaluando...</span>
+    </div>
+  </section>
+
+  <!-- Espacio de Trabajo Principal: Mapa y Panel Lateral -->
+  <main class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+    <!-- Contenedor del Mapa Leaflet -->
+    <div class="flex-1 relative h-full">
+      <div id="map" class="w-full h-full"></div>
+
+      <!-- Leyenda Flotante de Semaforización por FRP -->
+      <div class="absolute bottom-4 left-4 z-[500] bg-slate-900/95 backdrop-blur-sm border border-slate-700/80 rounded-lg p-3 text-xs shadow-xl max-w-[280px]">
+        <div class="font-semibold text-white mb-2 flex items-center justify-between">
+          <span>Clasificación FRP</span>
+          <span class="text-[10px] text-slate-400 font-mono">(Megavatios)</span>
+        </div>
+        <div class="space-y-1.5">
+          <div class="flex items-center gap-2">
+            <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 border border-emerald-300 shrink-0"></span>
+            <span class="text-slate-300">&lt; 10 MW: Baja intensidad / Posible falso positivo</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3.5 h-3.5 rounded-full bg-amber-500 border border-amber-300 shrink-0"></span>
+            <span class="text-slate-300">10 - 50 MW: Intensidad media / Alta confianza</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3.5 h-3.5 rounded-full bg-rose-600 border border-rose-300 shrink-0"></span>
+            <span class="text-slate-300">&ge; 50 MW: Alta intensidad / Incendio activo</span>
+          </div>
+          <div class="pt-1.5 border-t border-slate-800 flex items-center gap-2 text-slate-400 text-[11px]">
+            <span class="w-4 h-0 border-t-2 border-dashed border-cyan-400 inline-block"></span>
+            <span>Bounding Box Sumapaz</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel Lateral Desplegable de Focos Detectados -->
+    <aside id="sidebar-drawer" class="w-full md:w-80 lg:w-96 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0 max-h-[40vh] md:max-h-full z-10 transition-all">
+      <div class="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">Focos Registrados</h2>
+          <p id="sidebar-source-label" class="text-[11px] text-slate-400">Cargando telemetría...</p>
+        </div>
+        <button id="btn-recenter-map" class="text-xs text-cyan-400 hover:text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded transition-colors" title="Centrar mapa en Sumapaz">
+          Centrar
+        </button>
+      </div>
+
+      <!-- Lista de Focos Térmicos -->
+      <div id="anomalies-list" class="flex-1 overflow-y-auto divide-y divide-slate-800/60 p-2 space-y-1">
+        <!-- Renderizado dinámico desde app.js -->
+        <div class="p-4 text-center text-xs text-slate-400">Cargando anomalías térmicas...</div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL DE DIVULGACIÓN CIENTÍFICA (Física de Teledetección y Fuego)        -->
+  <!-- ========================================================================= -->
+  <div id="modal-science" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-700/60 flex items-center justify-center text-cyan-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Divulgación Científica: Teledetección Satelital</h3>
+            <p class="text-xs text-slate-400">Fundamentos físicos de detección de anomalías térmicas en NASA FIRMS</p>
+          </div>
+        </div>
+        <button id="btn-close-science" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 overflow-y-auto space-y-6 text-sm text-slate-300">
+        
+        <!-- Sección 1: Ley de Stefan-Boltzmann -->
+        <article class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-cyan-400 text-sm">1. Ley de Stefan-Boltzmann: Radiación Total</h4>
+            <span class="text-xs font-mono text-slate-400">E = &epsilon; &middot; &sigma; &middot; T<sup>4</sup></span>
+          </div>
+          <p class="text-xs leading-relaxed text-slate-300">
+            Todo cuerpo con temperatura superior al cero absoluto irradia energía electromagnética. La emitancia radiante total (<span class="font-mono text-cyan-300">E</span>) es directamente proporcional a la cuarta potencia de la temperatura absoluta (<span class="font-mono text-cyan-300">T</span> en Kelvin).
+          </p>
+          <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs font-mono space-y-1">
+            <div class="text-slate-400">&sigma; = 5.670374 &times; 10<sup>-8</sup> W/(m&sup2;&middot;K<sup>4</sup>) (Constante de Stefan-Boltzmann)</div>
+            <div class="text-slate-400">&epsilon; = Emisividad de la superficie vegetal (&asymp; 0.95 en biomasa de páramo)</div>
+            <div class="text-amber-400 font-semibold pt-1">
+              &rarr; Si la temperatura se duplica de 300 K (27&deg;C ambiente) a 600 K (327&deg;C fuego incipiente), la radiación emitida se multiplica por 16 (2<sup>4</sup>).
+            </div>
+          </div>
+        </article>
+
+        <!-- Sección 2: Ley de Desplazamiento de Wien -->
+        <article class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-amber-400 text-sm">2. Ley de Desplazamiento de Wien: Canal MIR a 3.9 &mu;m</h4>
+            <span class="text-xs font-mono text-slate-400">&lambda;<sub>m&aacute;x</sub> &middot; T = b</span>
+          </div>
+          <p class="text-xs leading-relaxed text-slate-300">
+            La longitud de onda de máxima emisión radiativa es inversamente proporcional a la temperatura del emisor, gobernada por la constante de Wien <span class="font-mono text-amber-300">b &asymp; 2897.77 &mu;m&middot;K</span>.
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1">
+              <span class="font-bold text-slate-200">Suelo y Vegetación Ambiental (300 K):</span>
+              <p class="font-mono text-slate-400">&lambda;<sub>m&aacute;x</sub> = 2898 / 300 &asymp; 9.66 &mu;m</p>
+              <p class="text-[11px] text-slate-400">Emite fuertemente en el Infrarrojo Térmico Lejano (Canal TIR &sim;10.8 &mu;m).</p>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1">
+              <span class="font-bold text-amber-300">Frente de Fuego Activo (800 - 1200 K):</span>
+              <p class="font-mono text-amber-400">&lambda;<sub>m&aacute;x</sub> = 2898 / 800 &asymp; 3.62 &mu;m</p>
+              <p class="text-[11px] text-slate-400">Su pico cae exactamente en el Infrarrojo Medio (Canal MIR 3.7 - 3.9 &mu;m: Banda I-4 de VIIRS y Canal 21/22 de MODIS).</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-300">
+            <span class="font-semibold text-emerald-400">&iquest;Por qu&eacute; es crucial?</span> Incluso si el fuego ocupa solo el 0.1% del p&iacute;xel satelital (sub-p&iacute;xel), el dr&aacute;stico incremento de radiaci&oacute;n a 3.9 &mu;m sobresale instant&aacute;neamente sobre el fondo ambiental fr&iacute;o del p&aacute;ramo.
+          </p>
+        </article>
+
+        <!-- Sección 3: Potencia Radiativa de Fuego (FRP) -->
+        <article class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-rose-400 text-sm">3. Potencia Radiativa de Fuego (FRP en Megavatios)</h4>
+            <span class="text-xs font-mono text-slate-400">FRP = &int; E<sub>rad</sub> dA [MW]</span>
+          </div>
+          <p class="text-xs leading-relaxed text-slate-300">
+            Propuesta por Wooster et al. (2003/2005), la Potencia Radiativa de Fuego cuantifica la tasa instantánea de energía liberada por la combustión de biomasa por unidad de tiempo.
+          </p>
+          <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs space-y-1.5">
+            <div class="font-semibold text-slate-200">Relación Estequiométrica con la Pérdida de Biomasa:</div>
+            <p class="font-mono text-cyan-300">Tasa de Consumo de Biomasa (kg/s) &asymp; 0.368 (&plusmn; 0.015) &times; FRP (MW)</p>
+            <p class="text-[11px] text-slate-400">
+              Un foco de 50 MW quema aproximadamente 18.4 kg de vegetación de páramo (frailejones, pajonales y turberas) cada segundo, liberando monóxido y dióxido de carbono directamente a la atmósfera.
+            </p>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3 border-t border-slate-800 bg-slate-900/90 flex justify-end">
+        <button id="btn-close-science-footer" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors">
+          Entendido / Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL DE REPORTE TÁCTICO PARA BRIGADAS Y CUERPOS DE BOMBEROS             -->
+  <!-- ========================================================================= -->
+  <div id="modal-report" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+    <div id="printable-report-modal" class="bg-slate-900 border border-slate-700 rounded-xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+      
+      <!-- Report Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900 no-print">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/60 flex items-center justify-center text-amber-400 font-bold">
+            !
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Reporte de Riesgo para Brigadas de Campo</h3>
+            <p class="text-xs text-slate-400">Parque Nacional Natural Sumapaz y Región de Páramos Circundantes</p>
+          </div>
+        </div>
+        <button id="btn-close-report" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Report Content (Printable) -->
+      <div class="p-5 overflow-y-auto space-y-5 text-xs text-slate-300">
+        
+        <!-- Ficha de Encabezado Oficial -->
+        <div class="border-b border-slate-800 pb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h4 class="text-sm font-bold text-white uppercase tracking-wider">Dossier Operativo de Anomalías Térmicas</h4>
+            <p class="text-slate-400 text-xs">Entidad Receptora: Brigadas PNN Sumapaz, Defensa Civil, Bomberos de Cundinamarca/Bogotá</p>
+          </div>
+          <div class="text-right text-xs font-mono">
+            <div>Fecha de Emisión: <span id="report-date" class="text-slate-200">--</span></div>
+            <div>Ventana Analizada: <span id="report-hours-window" class="text-amber-400 font-bold">24 Horas</span></div>
+          </div>
+        </div>
+
+        <!-- Resumen de Criticidad -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Nivel de Alerta General</div>
+            <div id="report-alert-level" class="text-base font-bold text-rose-500 mt-1 uppercase">ALERTA ROJA</div>
+          </div>
+          <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Total Focos Activos</div>
+            <div id="report-total-spots" class="text-base font-mono font-bold text-white mt-1">--</div>
+          </div>
+          <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Pico de Potencia (FRP)</div>
+            <div id="report-max-frp" class="text-base font-mono font-bold text-amber-400 mt-1">-- MW</div>
+          </div>
+          <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Focos &ge; 50 MW (Críticos)</div>
+            <div id="report-high-spots" class="text-base font-mono font-bold text-rose-400 mt-1">--</div>
+          </div>
+        </div>
+
+        <!-- Instrucciones Tácticas para Guardaparques -->
+        <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+          <h5 class="font-bold text-amber-400 text-xs uppercase tracking-wider">Protocolo de Despliegue en Terreno:</h5>
+          <ul class="list-disc list-inside space-y-1 text-slate-300 text-xs leading-relaxed">
+            <li><strong>Focos de Alta Potencia (&ge;50 MW):</strong> Despacho inmediato de cuadrillas de ataque directo con bombas de espalda y herramientas de línea negra. Establecer puesto de mando unificado (PMU).</li>
+            <li><strong>Vientos de Ladera y Humedad:</strong> En el Páramo de Sumapaz, los vientos anabáticos de mediodía aceleran la propagación hacia las crestas y lagunas glaciares. Priorizar cortafuegos naturales.</li>
+            <li><strong>Protección de Frailejones (Espeletia spp.):</strong> La médula esponjosa y las hojas secas adheridas al tallo son altamente inflamables. El fuego subterráneo en turberas puede reactivarse durante 48 a 72 horas.</li>
+          </ul>
+        </div>
+
+        <!-- Tabla Detallada con Coordenadas para GPS Garmin/Móvil -->
+        <div class="space-y-2">
+          <h5 class="font-bold text-white text-xs uppercase tracking-wider">Geolocalización Detallada para Navegadores GPS (WGS84):</h5>
+          <div class="overflow-x-auto border border-slate-800 rounded-lg max-h-56">
+            <table class="w-full text-left text-xs divide-y divide-slate-800">
+              <thead class="bg-slate-950 text-slate-400 font-mono text-[11px]">
+                <tr>
+                  <th class="p-2">ID</th>
+                  <th class="p-2">Sector</th>
+                  <th class="p-2">Lat / Lon (Dec)</th>
+                  <th class="p-2">Coordenadas DMS</th>
+                  <th class="p-2">FRP</th>
+                  <th class="p-2">Temp (K)</th>
+                  <th class="p-2">Satélite</th>
+                </tr>
+              </thead>
+              <tbody id="report-table-body" class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                <!-- Se llena con app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Report Footer con Acciones -->
+      <div class="p-3 border-t border-slate-800 bg-slate-900 flex items-center justify-between no-print">
+        <span class="text-[11px] text-slate-400">Formato compatible con estándares UNGRD y Parques Nacionales Naturales</span>
+        <div class="flex items-center gap-2">
+          <button id="btn-download-csv" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition-colors flex items-center gap-1.5">
+            Descargar CSV
+          </button>
+          <button id="btn-print-report" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors flex items-center gap-1.5">
+            Imprimir / Guardar PDF
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

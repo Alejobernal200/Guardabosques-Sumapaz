@@ -1,0 +1,98 @@
+/* Estilos complementarios para Guardabosques Sumapaz */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Contenedor del mapa */
+#map {
+  height: 100%;
+  width: 100%;
+  background-color: #090d16;
+  z-index: 10;
+}
+
+/* Personalización de Popups de Leaflet */
+.leaflet-popup-content-wrapper {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 14px 16px !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.leaflet-popup-tip {
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+}
+
+/* Animación de pulsación para focos de alto riesgo (Anclaje geográfico fijo) */
+@keyframes pulse-ring {
+  0% {
+    stroke-width: 2px;
+    stroke-opacity: 1;
+    fill-opacity: 0.95;
+  }
+  50% {
+    stroke-width: 8px;
+    stroke-opacity: 0.35;
+    fill-opacity: 0.8;
+  }
+  100% {
+    stroke-width: 2px;
+    stroke-opacity: 1;
+    fill-opacity: 0.95;
+  }
+}
+
+.fire-marker-pulse-high {
+  animation: pulse-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.fire-marker-pulse-med {
+  animation: pulse-ring 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Modales */
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+}
+
+/* Estilos de Impresión Táctica para Brigadistas */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-report-modal, #printable-report-modal * {
+    visibility: visible;
+  }
+  #printable-report-modal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

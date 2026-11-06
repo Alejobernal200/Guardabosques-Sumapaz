@@ -1,0 +1,8 @@
+{
+  "name": "Guardabosques Sumapaz",
+  "description": "Plataforma de alerta temprana y divulgación científica para visualización de anomalías térmicas en tiempo real en el Páramo de Sumapaz con datos de NASA FIRMS (MODIS/VIIRS).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

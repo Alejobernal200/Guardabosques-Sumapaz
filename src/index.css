@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  code, kbd, samp, pre {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Custom Leaflet popup styling for high contrast and readability */
+.leaflet-popup-content-wrapper {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.7) !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+.leaflet-popup-content {
+  margin: 14px !important;
+  line-height: 1.45 !important;
+}
+.leaflet-popup-tip {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+}
+.leaflet-container {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  background-color: #0b0f19 !important;
+}
+
+/* Custom pulse animations for high FRP fire spots (Fixed geographic anchor) */
+@keyframes fire-pulse-red {
+  0% {
+    stroke-width: 2px;
+    stroke-opacity: 1;
+    fill-opacity: 0.95;
+  }
+  50% {
+    stroke-width: 8px;
+    stroke-opacity: 0.35;
+    fill-opacity: 0.8;
+  }
+  100% {
+    stroke-width: 2px;
+    stroke-opacity: 1;
+    fill-opacity: 0.95;
+  }
+}
+
+@keyframes fire-pulse-orange {
+  0% {
+    stroke-width: 2px;
+    stroke-opacity: 0.9;
+  }
+  50% {
+    stroke-width: 6px;
+    stroke-opacity: 0.35;
+  }
+  100% {
+    stroke-width: 2px;
+    stroke-opacity: 0.9;
+  }
+}
+
+.marker-pulse-red {
+  animation: fire-pulse-red 1.6s infinite ease-in-out;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.marker-pulse-orange {
+  animation: fire-pulse-orange 2.0s infinite ease-in-out;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #printable-report-area, #printable-report-area * {
+    visibility: visible !important;
+  }
+  #printable-report-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 24px !important;
+  }
+}
